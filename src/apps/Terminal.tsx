@@ -29,7 +29,10 @@ export default function Terminal() {
   const end = useRef<HTMLDivElement>(null)
   const field = useRef<HTMLInputElement>(null)
 
-  useEffect(() => end.current?.scrollIntoView({ block: 'end' }), [lines])
+  // Braces matter: recent browsers return a Promise from scrollIntoView, and an effect must not return one
+  useEffect(() => {
+    end.current?.scrollIntoView({ block: 'end' })
+  }, [lines])
 
   const print = (...out: Line[]) => setLines((l) => [...l, ...out])
   const out = (text: ReactNode): Line => ({ kind: 'out', text })

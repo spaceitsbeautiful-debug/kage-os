@@ -3,6 +3,8 @@
 Un système d'exploitation rétro-futuriste qui tourne entièrement dans le navigateur.
 Projet de Gounteni David.
 
+**En ligne : https://kage-os-phi.vercel.app**
+
 ## Ce qu'il y a dedans
 
 - Écran de démarrage façon BIOS et effet écran cathodique (CRT)

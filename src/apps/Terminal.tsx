@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { apps, type AppId } from '../os/apps'
-import { setSettings, useSettings, type Accent } from '../os/settings'
+import { resolve } from '../os/fs'
+import { WALLPAPERS, setSettings, useSettings, type Accent } from '../os/settings'
 import { useWindows } from '../os/store'
 
 // A small shell: real commands that drive the OS (open apps, change the theme...)
@@ -8,13 +9,7 @@ import { useWindows } from '../os/store'
 
 type Line = { kind: 'in' | 'out' | 'err'; text: ReactNode }
 
-const FILES: Record<string, string> = {
-  'readme.txt': 'Bienvenue dans 影OS. Tape « help » pour voir les commandes.',
-  'todo.txt': '- finir la room 3D\n- dormir un peu\n- battre mon record sur Lueur',
-  'secret.txt': 'Permission refusée. Essaie peut-être « sudo »… ou pas.',
-}
-
-const COMMANDS = ['help', 'about', 'apps', 'open', 'ls', 'cat', 'clear', 'date', 'whoami', 'neofetch', 'echo', 'theme', 'crt', 'history', 'kage', 'sudo', 'exit']
+const COMMANDS = ['help', 'about', 'apps', 'open', 'ls', 'cat', 'clear', 'date', 'whoami', 'neofetch', 'echo', 'theme', 'wallpaper', 'crt', 'history', 'kage', 'sudo', 'exit']
 
 export default function Terminal() {
   const { open, wins, close } = useWindows()
@@ -56,7 +51,9 @@ export default function Terminal() {
                 ['about', 'qui a fait ce système'],
                 ['apps', 'liste des applications'],
                 ['open <app>', 'ouvrir une application (ex. open ambiance)'],
-                ['ls / cat', 'lister et lire les fichiers'],
+                ['ls [dossier]', 'lister un dossier (Documents, Images…)'],
+                ['cat <fichier>', 'lire un fichier (ex. cat todo.txt)'],
+                ['wallpaper <nom>', 'nuit, synthwave, pluie, minimal'],
                 ['theme <couleur>', 'lavender, cyan, crimson, lime'],
                 ['crt on|off', 'effet écran cathodique'],
                 ['neofetch', 'infos système'],
@@ -87,13 +84,28 @@ export default function Terminal() {
         } else print(err(`Application inconnue : « ${arg} ». Tape « apps » pour la liste.`))
         break
       }
-      case 'ls':
-        print(out(Object.keys(FILES).join('    ')))
+      case 'ls': {
+        const node = resolve(arg ? arg.split('/').filter(Boolean) : [])
+        if (node?.kind === 'folder') print(out(node.children.map((c) => (c.kind === 'folder' ? c.name + '/' : c.name)).join('    ')))
+        else print(err(`ls : ${arg} : dossier introuvable`))
         break
-      case 'cat':
-        if (FILES[arg]) print(...FILES[arg].split('\n').map((l) => out(l)))
+      }
+      case 'cat': {
+        // A bare file name is looked up in Documents
+        const parts = arg.split('/').filter(Boolean)
+        const node = resolve(parts) ?? resolve(['Documents', ...parts])
+        if (node?.kind === 'text') print(...node.content().split('\n').map((l) => out(l)))
         else print(err(`cat : ${arg || '?'} : fichier introuvable`))
         break
+      }
+      case 'wallpaper': {
+        const w = WALLPAPERS.find((x) => x.id === arg.toLowerCase())
+        if (w) {
+          setSettings({ wallpaper: w.id })
+          print(out(`Fond d’écran : ${w.label}`))
+        } else print(err(`Fonds possibles : ${WALLPAPERS.map((x) => x.id).join(', ')}`))
+        break
+      }
       case 'clear':
         setLines([])
         break

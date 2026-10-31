@@ -1,4 +1,4 @@
-import { setSettings, useSettings, type Accent } from '../os/settings'
+import { WALLPAPERS, setSettings, useSettings, type Accent } from '../os/settings'
 
 const ACCENTS: { id: Accent; label: string; color: string }[] = [
   { id: 'lavender', label: 'Lavande', color: '#c4b5e8' },
@@ -8,7 +8,7 @@ const ACCENTS: { id: Accent; label: string; color: string }[] = [
 ]
 
 export default function Settings() {
-  const { crt, accent } = useSettings()
+  const { crt, accent, wallpaper } = useSettings()
   return (
     <div className="grid content-start gap-6 p-5">
       <section className="grid gap-3">
@@ -25,6 +25,24 @@ export default function Settings() {
             >
               <span className="size-5 rounded-full" style={{ background: a.color, boxShadow: `0 0 12px ${a.color}` }} />
               {a.label}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="grid gap-3">
+        <h2 className="m-0 font-mono text-[11px] font-normal uppercase tracking-[0.14em] text-muted">Fond d’écran</h2>
+        <div role="radiogroup" aria-label="Fond d’écran" className="grid grid-cols-2 gap-2">
+          {WALLPAPERS.map((w) => (
+            <button
+              key={w.id}
+              type="button"
+              role="radio"
+              aria-checked={wallpaper === w.id}
+              onClick={() => setSettings({ wallpaper: w.id })}
+              className={`rounded-[10px] border px-3 py-2.5 text-left transition-colors ${wallpaper === w.id ? 'border-accent bg-accent/10' : 'border-line hover:border-muted'}`}
+            >
+              {w.label}
             </button>
           ))}
         </div>
@@ -49,7 +67,7 @@ export default function Settings() {
         </button>
       </section>
 
-      <p className="m-0 font-mono text-[11px] text-muted">Astuce : ces réglages marchent aussi depuis le Terminal (theme cyan, crt off).</p>
+      <p className="m-0 font-mono text-[11px] text-muted">Astuce : ces réglages marchent aussi depuis le Terminal (theme cyan, crt off, wallpaper pluie), ou avec un clic droit sur le bureau.</p>
     </div>
   )
 }

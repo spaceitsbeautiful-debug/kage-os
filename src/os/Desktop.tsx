@@ -1,35 +1,71 @@
 import { useEffect, useState } from 'react'
-import { AnimatePresence } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import { appOrder, apps, type AppId } from './apps'
+import { Notifications, notify } from './notify'
+import { WALLPAPERS, getSettings, setSettings, useSettings } from './settings'
 import { useWindows } from './store'
 import Taskbar from './Taskbar'
+import Wallpaper from './Wallpaper'
 import Window from './Window'
 
 // The desktop: wallpaper, a column of app icons (double-click, or single tap on touch screens),
-// the open windows and the taskbar.
+// a right-click menu, the open windows, notifications and the taskbar.
+
+export function nextWallpaper() {
+  const i = WALLPAPERS.findIndex((w) => w.id === getSettings().wallpaper)
+  const next = WALLPAPERS[(i + 1) % WALLPAPERS.length]
+  setSettings({ wallpaper: next.id })
+  notify(`Fond d’écran : ${next.label}`)
+}
 
 export default function Desktop({ onShutdown }: { onShutdown: () => void }) {
   const { wins, open } = useWindows()
+  const { wallpaper } = useSettings()
   const [selected, setSelected] = useState<AppId | null>(null)
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
   const touch = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
   const top = wins.reduce((a, w) => (!w.minimized && w.z > a ? w.z : a), -1)
 
-  // Welcome: open the ambience generator on first arrival (on larger screens)
+  // Welcome: open the ambience generator on larger screens, and a hint
   useEffect(() => {
     if (window.innerWidth >= 900) open('ambiance')
+    const id = setTimeout(() => notify('Bienvenue sur 影OS. Fais un clic droit sur le bureau pour plus d’options.'), 900)
+    return () => clearTimeout(id)
   }, [open])
 
-  return (
-    <div className="wallpaper fixed inset-0 overflow-hidden" onPointerDown={() => setSelected(null)}>
-      <div aria-hidden="true" className="wallpaper-grid pointer-events-none absolute inset-x-[-20%] bottom-0 h-[60%]" />
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute right-[6vw] bottom-[12vh] font-display text-[min(40vw,420px)] leading-none font-extrabold text-accent/[0.05]"
-      >
-        影
-      </span>
+  useEffect(() => {
+    if (!menu) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setMenu(null)
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [menu])
 
-      <ul className="absolute top-3 left-3 m-0 grid list-none grid-cols-[repeat(auto-fill,88px)] gap-2 p-0 sm:grid-cols-1" style={{ maxHeight: 'calc(100% - 64px)' }}>
+  const menuItems: [string, () => void][] = [
+    ['Nouvelle note', () => open('notes')],
+    ['Ouvrir les fichiers', () => open('files')],
+    ['Ouvrir le Terminal', () => open('terminal')],
+    ['Changer de fond d’écran', nextWallpaper],
+    ['Réglages', () => open('settings')],
+    ['À propos de 影OS', () => open('about')],
+  ]
+
+  return (
+    <div
+      className="wallpaper fixed inset-0 overflow-hidden"
+      onPointerDown={() => {
+        setSelected(null)
+        setMenu(null)
+      }}
+      onContextMenu={(e) => {
+        // Only on the desktop itself, not inside windows
+        if ((e.target as HTMLElement).closest('section, footer, nav')) return
+        e.preventDefault()
+        setMenu({ x: Math.min(e.clientX, window.innerWidth - 230), y: Math.min(e.clientY, window.innerHeight - 290) })
+      }}
+    >
+      <Wallpaper id={wallpaper} />
+
+      <ul className="absolute top-3 left-3 m-0 grid list-none grid-flow-row grid-cols-[repeat(auto-fill,88px)] gap-1 p-0 sm:grid-flow-col sm:grid-cols-none sm:grid-rows-[repeat(auto-fill,96px)]" style={{ height: 'calc(100% - 64px)', width: 'calc(100% - 24px)' }}>
         {appOrder.map((id) => (
           <li key={id}>
             <button
@@ -37,6 +73,7 @@ export default function Desktop({ onShutdown }: { onShutdown: () => void }) {
               onPointerDown={(e) => {
                 e.stopPropagation()
                 setSelected(id)
+                setMenu(null)
               }}
               onClick={() => touch && open(id)}
               onDoubleClick={() => open(id)}
@@ -58,6 +95,36 @@ export default function Desktop({ onShutdown }: { onShutdown: () => void }) {
         ))}
       </AnimatePresence>
 
+      <AnimatePresence>
+        {menu && (
+          <motion.nav
+            aria-label="Menu du bureau"
+            onPointerDown={(e) => e.stopPropagation()}
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.96 }}
+            transition={{ duration: 0.12 }}
+            className="fixed z-[8500] grid w-[220px] gap-0.5 rounded-[10px] border border-line bg-panel/95 p-1.5 shadow-2xl backdrop-blur-md"
+            style={{ left: menu.x, top: menu.y }}
+          >
+            {menuItems.map(([label, run], i) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => {
+                  run()
+                  setMenu(null)
+                }}
+                className={`rounded-[6px] px-3 py-2 text-left text-[13px] hover:bg-accent hover:text-bg ${i === 3 || i === 4 ? 'mt-0.5 border-t border-line' : ''}`}
+              >
+                {label}
+              </button>
+            ))}
+          </motion.nav>
+        )}
+      </AnimatePresence>
+
+      <Notifications />
       <Taskbar onShutdown={onShutdown} />
     </div>
   )
